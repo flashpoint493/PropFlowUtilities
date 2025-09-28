@@ -1,4 +1,4 @@
-﻿#include "AssetFilters/AruFilter_ByValue.h"
+#include "AssetFilters/AruFilter_ByValue.h"
 #include "AruFunctionLibrary.h"
 #include UE_INLINE_GENERATED_CPP_BY_NAME(AruFilter_ByValue)
 
@@ -221,6 +221,44 @@ bool FAruFilter_ByText::IsConditionMet(const FProperty* InProperty, const void* 
 	else if (CompareOp == EAruContainerCompareOp::HasAny)
 	{
 		return InStringValue.Contains(ResolvedConditionValue, SearchCase) ^ bInverseCondition;
+	}
+
+	return bInverseCondition;
+}
+
+bool FAruFilter_ByNameValue::IsConditionMet(const FProperty* InProperty, const void* InValue, const FInstancedPropertyBag& InParameters) const
+{
+	if (InProperty == nullptr || ConditionValue.IsNone())
+	{
+		return bInverseCondition;
+	}
+
+	// Check if property is FName type
+	const FNameProperty* NameProperty = CastField<FNameProperty>(InProperty);
+	if (NameProperty == nullptr)
+	{
+		return bInverseCondition;
+	}
+
+	// Get FName value
+	const FName* InNameValue = static_cast<const FName*>(InValue);
+	if (InNameValue == nullptr)
+	{
+		return bInverseCondition;
+	}
+
+	// Compare based on specified operation
+	ESearchCase::Type SearchCase = bCaseSensitive ? ESearchCase::CaseSensitive : ESearchCase::IgnoreCase;
+	const FString InNameValueString = InNameValue->ToString();
+	const FString ConditionValueString = ConditionValue.ToString();
+
+	if (CompareOp == EAruContainerCompareOp::HasAll)
+	{
+		return InNameValueString.Equals(ConditionValueString, SearchCase) ^ bInverseCondition;
+	}
+	else if (CompareOp == EAruContainerCompareOp::HasAny)
+	{
+		return InNameValueString.Contains(ConditionValueString, SearchCase) ^ bInverseCondition;
 	}
 
 	return bInverseCondition;

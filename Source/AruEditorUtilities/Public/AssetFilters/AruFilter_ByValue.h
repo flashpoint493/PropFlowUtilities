@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "AruTypes.h"
 #include "GameplayTagContainer.h"
 #include "AruFilter_ByValue.generated.h"
@@ -124,6 +124,27 @@ public:
 protected:
 	UPROPERTY(EditDefaultsOnly, SimpleDisplay)
 	FString ConditionValue{};
+
+	UPROPERTY(EditDefaultsOnly, SimpleDisplay)
+	EAruContainerCompareOp CompareOp = EAruContainerCompareOp::HasAny;
+
+	UPROPERTY(EditDefaultsOnly, SimpleDisplay)
+	bool bCaseSensitive = false;
+};
+
+USTRUCT(BlueprintType, DisplayName="Check Name Value")
+struct FAruFilter_ByNameValue : public FAruFilter
+{
+	GENERATED_BODY()
+
+public:
+	virtual ~FAruFilter_ByNameValue() override {};
+
+	virtual bool IsConditionMet(const FProperty* InProperty, const void* InValue, const FInstancedPropertyBag& InParameters) const override;
+
+protected:
+	UPROPERTY(EditDefaultsOnly, SimpleDisplay)
+	FName ConditionValue{};
 
 	UPROPERTY(EditDefaultsOnly, SimpleDisplay)
 	EAruContainerCompareOp CompareOp = EAruContainerCompareOp::HasAny;
