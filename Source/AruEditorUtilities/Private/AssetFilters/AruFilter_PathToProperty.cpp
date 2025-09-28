@@ -1,4 +1,4 @@
-﻿#include "AssetFilters/AruFilter_PathToProperty.h"
+#include "AssetFilters/AruFilter_PathToProperty.h"
 #include "AruFunctionLibrary.h"
 #include UE_INLINE_GENERATED_CPP_BY_NAME(AruFilter_PathToProperty)
 
@@ -22,13 +22,17 @@ bool FAruFilter_PathToProperty::IsConditionMet(const FProperty* InProperty, cons
 	FAruPropertyContext PropertyContext = UAruFunctionLibrary::FindPropertyByPath(InProperty, InValue, ResolvedPath);
 	if (!PropertyContext.IsValid())
 	{
+		// Get Current Property Name
+		FString CurrentPropertyName = InProperty ? InProperty->GetName() : TEXT("Unknown");
+		
 		FMessageLog{FName{"AruEditorUtilitiesModule"}}.Warning(
 			FText::Format(
 				LOCTEXT(
 					"NoPropertyFound",
-					"[{0}][{1}]Failed to find property by path:'{2}'."),
+					"[{0}][{1}]Failed to find property '{2}' by path:'{3}'."),
 				FText::FromString(GetCompactName()),
 				FText::FromString(Aru::ProcessResult::Failed),
+				FText::FromString(CurrentPropertyName),
 				FText::FromString(ResolvedPath)
 			));
 		
