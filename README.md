@@ -112,3 +112,89 @@ public:
     }
 };
 ```
+
+## 📚 Asset Collector: Tag-based Checking
+
+This plugin provides `AssetCollector/` capabilities to organize and validate assets using maintained tag objects.
+
+- **Key Types**
+  - `UAruAssetCollector` (`Source/AruEditorUtilities/Public/AssetCollector/AruAssetCollector.h`)
+    - `Collect()`: Implement in Blueprint to populate internal `AruAssetObjects`.
+    - `Get()`: Retrieve all collected asset objects.
+    - `ClearAssets()`: Clear current collection results.
+    - `AddInstance(UObject* SourceObject, const TArray<FName>& Tags)`: Create and append a `UAruAssetObject` with object and tags.
+  - `UAruAssetObject` (`Source/AruEditorUtilities/Public/AssetObject/AruAssetObject.h`)
+    - Maintains `ReferencedObject`, `AssetName`, and `AssetTags` (`TArray<FName>`).
+    - Exposes `AddAssetTag()` and `GetAssetTags()` to manage and read tags.
+
+- **Recommendations**
+  - Use `UAruAssetCollector::AddInstance()` to attach business-relevant tags during collection (e.g., `NeedsLOD`, `HasGameplayTag`, `MaterialVariantA`).
+  - Before actions/validations, read `UAruAssetObject::GetAssetTags()` to perform include/require/mutually-exclusive checks and decide whether to proceed.
+  - Combine with `ActionTags`/`ValidationTags` (if used in your configs) to scope definitions by category.
+
+- **Blueprint Flow (Conceptual)**
+  - Derive from `UAruAssetCollector` and implement `Collect()`:
+    1. Iterate assets (Content Browser query or custom source).
+    2. For each match, call `AddInstance(Object, Tags)` to create and store a `UAruAssetObject`.
+    3. Later, inspect `Get()` results and evaluate tags to decide which action sets to run.
+
+> The collector maintains a pool of `UAruAssetObject`, each carrying the source `UObject` and a set of `FName` tags. Build your checks around these tags to gate subsequent actions/validations.
+
+## 🧩 Proxy Coverage Extension
+
+We expanded proxy coverage so filters can perform Blueprint-defined checks across many value types without C++ changes.
+
+- **Key Types and Locations**
+  - `FAruFilter_Proxy` / `FAruFilter_BlueprintProxy` (`Source/AruEditorUtilities/Public/AssetFilters/AruFilter_Proxy.h`)
+  - `UAruFilterProxy` (Blueprint-implementable proxy)
+
+- **Overridable check entries (`UAruFilterProxy`)**
+  - `CheckBoolValue(bool)`
+  - `CheckIntValue(int32)`
+  - `CheckFloatValue(float)`
+  - `CheckStringValue(const FString&)`
+  - `CheckTextValue(const FText&)`
+  - `CheckObjectValue(const UObject*)`
+  - `CheckNameValue(const FName&)`
+  - `CheckInstancedStructValue(const FInstancedStruct&)`
+  - `CheckGameplayTagValue(const FGameplayTag&)`
+  - `CheckGameplayTagContainerValue(const FGameplayTagContainer&)`
+  - `CheckEnumValue(int32, const UEnum*)`
+
+- **Usage**
+  1. Create a Blueprint class derived from `UAruFilterProxy` and implement the `Check*` functions you need (others can remain default).
+  2. In configs, use `FAruFilter_BlueprintProxy`, set `ProxyClass`, or provide an instanced `ProxyInstance`.
+  3. At runtime, the filter routes to the appropriate `Check*` entry based on the property type.
+
+- **Working with tag checks**
+  - If your `UAruAssetCollector` populated tags for filtering, incorporate that context inside your proxy checks to decide condition matches.
+
+> The proxy-based filter allows Blueprint-defined checks for various value kinds (bool, int, float, string, text, object, name, struct, GameplayTag(s), enum), making it easy to extend without C++ changes.
+
+### Predicate-side Proxy
+
+- **Key Types and Locations**
+  - `FAruPredicate_Proxy` / `FAruPredicate_BlueprintProxy` (`Source/AruEditorUtilities/Public/AssetPredicates/AruPredicate_Proxy.h`)
+  - `UAruPredicateProxy` (Blueprint-implementable proxy)
+
+- **Overridable processing entries (`UAruPredicateProxy`)**
+  - `ProcessBoolValue(bool)`
+  - `ProcessIntValue(int32)`
+  - `ProcessFloatValue(float)`
+  - `ProcessStringValue(const FString&)`
+  - `ProcessTextValue(const FText&)`
+  - `ProcessObjectValue(const UObject*)`
+  - `ProcessNameValue(const FName&)`
+  - `ProcessStructValue(const FInstancedStruct&)`
+  - `ProcessInstancedStructValue(const FInstancedStruct&)`
+  - `ProcessGameplayTagValue(const FGameplayTag&)`
+  - `ProcessGameplayTagContainerValue(const FGameplayTagContainer&)`
+  - `ProcessEnumValue(int64, const UEnum*)`
+
+- **Usage**
+  1. Create a Blueprint class derived from `UAruPredicateProxy` and implement the relevant `Process*` entries to transform/write back values.
+  2. In configs, use `FAruPredicate_BlueprintProxy`, set `ProxyClass`, or provide an instanced `ProxyInstance`.
+  3. At runtime, the predicate chooses the appropriate `Process*` entry based on property type and writes the returned value back.
+
+> Predicate proxy lets you transform target values in Blueprint per type, then write them back during execution.
+

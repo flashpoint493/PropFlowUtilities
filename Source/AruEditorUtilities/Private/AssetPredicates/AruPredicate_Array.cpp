@@ -1,4 +1,4 @@
-﻿#include "AssetPredicates/AruPredicate_Array.h"
+#include "AssetPredicates/AruPredicate_Array.h"
 #include UE_INLINE_GENERATED_CPP_BY_NAME(AruPredicate_Array)
 #define LOCTEXT_NAMESPACE "AruPredicate_Array"
 
@@ -179,7 +179,11 @@ bool FAruPredicate_RemoveArrayValue::Execute(
 		}
 	}
 
-	for (int32& Index : PendingRemove)
+	// Sort indices in descending order to avoid invalid indices after removal
+	PendingRemove.Sort([](const int32& A, const int32& B) { return A > B; });
+	
+	// Remove elements from highest index to lowest
+	for (int32 Index : PendingRemove)
 	{
 		ArrayHelper.RemoveValues(Index);
 	}

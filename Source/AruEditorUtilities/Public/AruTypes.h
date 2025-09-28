@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "StructUtils/InstancedStruct.h"
 #include "StructUtils/PropertyBag.h"
@@ -48,6 +48,19 @@ struct FAruFilter
 
 public:
 	virtual ~FAruFilter() {}
+
+	/**
+	 * Executes an operation on a target property using provided parameters.
+	 * 
+	 * @param InProperty        The meta-data/description of the property being operated on. 
+	 *                          Contains type information and property attributes.
+	 * @param InValue           Pointer to the raw memory address of the property instance 
+	 *                          being modified. The actual data type matches InProperty's type.
+	 * @param InParameters      Container holding runtime parameters/operators for the operation,
+	 *                          including any global context.
+	 * 
+	 * @return                  True if the property value met the condition, false otherwise.
+	 */
 	virtual bool IsConditionMet(const FProperty* InProperty, const void* InValue, const FInstancedPropertyBag& InParameters) const { return bInverseCondition; }
 
 protected:
@@ -79,6 +92,35 @@ public:
 	virtual bool Execute(const FProperty* InProperty, void* InValue, const FInstancedPropertyBag& InParameters) const { return true; }
 };
 
+template <typename StructType>
+	struct TStructIterator
+{
+	int32 Index;
+	const TArray<TInstancedStruct<StructType>>& StructArrayRef;
+
+	FORCEINLINE TStructIterator(int32 InIndex, const TArray<TInstancedStruct<StructType>>& InStructArray)
+		: Index(InIndex), StructArrayRef(InStructArray) {};
+
+	FORCEINLINE bool operator!=(const TStructIterator& Other) const { return Index != Other.Index; }
+	FORCEINLINE const StructType& operator*() const { return StructArrayRef[Index].template Get<const StructType>(); }
+	FORCEINLINE TStructIterator& operator++()
+	{
+		++Index;
+		return *this;
+	}
+};
+
+template <typename StructType>
+struct TRangedForStructArray
+{
+	const TArray<TInstancedStruct<StructType>>& StructArrayRef;
+
+	explicit TRangedForStructArray(const TArray<TInstancedStruct<StructType>>& InStructArray) : StructArrayRef(InStructArray) {}
+
+	FORCEINLINE TStructIterator<StructType> begin() { return TStructIterator<StructType>(0, StructArrayRef); }
+	FORCEINLINE TStructIterator<StructType> end()	{ return TStructIterator<StructType>(StructArrayRef.Num(), StructArrayRef); }
+};
+
 USTRUCT(BlueprintType)
 struct FAruActionDefinition
 {
@@ -93,36 +135,14 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Aru Editor Utilities", meta=(ExcludeBaseStruct))
 	TArray<TInstancedStruct<FAruPredicate>> ActionPredicates;
-
-	template <typename StructType>
-	struct TStructIterator
-	{
-		int32 Index;
-		const TArray<TInstancedStruct<StructType>>& StructArrayRef;
-
-		FORCEINLINE TStructIterator(int32 InIndex, const TArray<TInstancedStruct<StructType>>& InStructArray)
-			: Index(InIndex), StructArrayRef(InStructArray) {};
-
-		FORCEINLINE bool operator!=(const TStructIterator& Other) const { return Index != Other.Index; }
-		FORCEINLINE const StructType& operator*() const { return StructArrayRef[Index].template Get<const StructType>(); }
-		FORCEINLINE TStructIterator& operator++()
-		{
-			++Index;
-			return *this;
-		}
-	};
-
-	template <typename StructType>
-	struct TRangedForStructArray
-	{
-		const TArray<TInstancedStruct<StructType>>& StructArrayRef;
-
-		explicit TRangedForStructArray(const TArray<TInstancedStruct<StructType>>& InStructArray) : StructArrayRef(InStructArray) {}
-
-		FORCEINLINE TStructIterator<StructType> begin() { return TStructIterator<StructType>(0, StructArrayRef); }
-		FORCEINLINE TStructIterator<StructType> end() { return TStructIterator<StructType>(StructArrayRef.Num(), StructArrayRef); }
-	};
-
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Aru Editor Utilities", meta=(DisplayName="Description"))
+	FString Description;
+	
+	/** Tags for matching with asset objects */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Aru Editor Utilities", meta=(DisplayName="Tags"))
+	TArray<FName> ActionTags;
+	
 public:
 	FORCEINLINE TRangedForStructArray<FAruFilter> ForEachCondition() const
 	{
@@ -132,6 +152,44 @@ public:
 	FORCEINLINE TRangedForStructArray<FAruPredicate> ForEachPredicates() const
 	{
 		return TRangedForStructArray{ActionPredicates};
+	}
+
+	/** Get all action tags */
+	FORCEINLINE const TArray<FName>& GetTags() const
+	{
+		return ActionTags;
+	}
+};
+
+USTRUCT(BlueprintType)
+struct FAruValidationDefinition
+{
+	GENERATED_BODY()
+
+public:
+	bool Validate(const FProperty* InProperty, const void* InValue, const FInstancedPropertyBag& InParameters) const;
+
+protected:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Aru Editor Utilities", meta=(ExcludeBaseStruct))
+	TArray<TInstancedStruct<FAruFilter>> ValidationConditions;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Aru Editor Utilities", meta = (DisplayName = "Description"))
+	FString Description;
+
+	/** Tags for matching with asset objects */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Aru Editor Utilities", meta=(DisplayName="Tags"))
+	TArray<FName> ValidationTags;
+
+public:
+	FORCEINLINE TRangedForStructArray<FAruFilter> ForEachCondition() const
+	{
+		return TRangedForStructArray{ValidationConditions};
+	}
+
+	/** Get all validation tags */
+	FORCEINLINE const TArray<FName>& GetTags() const
+	{
+		return ValidationTags;
 	}
 };
 
@@ -143,6 +201,16 @@ class ARUEDITORUTILITIES_API UAruActionConfigData : public UDataAsset
 public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	TArray<FAruActionDefinition> ActionDefinitions;
+};
+
+UCLASS(BlueprintType)
+class ARUEDITORUTILITIES_API UAruValidationConfigData : public UDataAsset
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	TArray<FAruValidationDefinition> ValidationDefinitions;
 };
 
 USTRUCT(BlueprintType)

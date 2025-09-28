@@ -1,4 +1,4 @@
-﻿#include "AssetPredicates/AruPredicate_PropertySetter.h"
+#include "AssetPredicates/AruPredicate_PropertySetter.h"
 #include "AruFunctionLibrary.h"
 #include "UObject/PropertyAccessUtil.h"
 #include UE_INLINE_GENERATED_CPP_BY_NAME(AruPredicate_PropertySetter)
@@ -252,6 +252,7 @@ TOptional<const void*> FAruPredicate_PropertySetter::GetValueFromDataTable(
 				FText::FromString(GetCompactName()),
 				FText::FromString(Aru::ProcessResult::Failed)
 			));
+		return {};
 	}
 
 	if (RowName.IsEmpty())
@@ -1443,7 +1444,7 @@ bool FAruPredicate_SetStructValue::Execute(
 		}
 
 		FStructView& StructValue = ParameterValue.GetValue();
-		if (!StructValue.GetScriptStruct()->IsChildOf(SourceStructType))
+		if (StructValue.GetScriptStruct() != nullptr && !StructValue.GetScriptStruct()->IsChildOf(SourceStructType))
 		{
 			FMessageLog{FName{"AruEditorUtilitiesModule"}}.Warning(
 			FText::Format(
@@ -1458,8 +1459,10 @@ bool FAruPredicate_SetStructValue::Execute(
 			));
 			return false;
 		}
-
-		StructProperty->Struct->CopyScriptStruct(InValue, StructValue.GetMemory());
+		if (StructProperty->Struct)
+		{
+			StructProperty->Struct->CopyScriptStruct(InValue, StructValue.GetMemory());
+		}
 		return true;
 	}
 
